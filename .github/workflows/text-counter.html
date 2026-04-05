@@ -1,1 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TextLens — Precision Text Counter</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --ink: #0f0f0f;
+    --paper: #f5f0e8;
+    --cream: #ede8dc;
+    --gold: #c8a84b;
+    --gold-light: #e8d48a;
+    --rust: #c0542a;
+    --muted: #7a7060;
+    --border: #ccc5b0;
+    --card: #faf7f2;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 27px,
+        rgba(0,0,0,0.04) 27px,
+        rgba(0,0,0,0.04) 28px
+      );
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.4rem 2.5rem;
+    border-bottom: 1.5px solid var(--border);
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+  .logo span {
+    color: var(--gold);
+  }
+
+  .tagline {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    padding: 0.45rem 1rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.18s ease;
+  }
+  .btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+    background: var(--cream);
+  }
+  .btn-primary {
+    border-color: var(--ink);
+    color: var(--paper);
+    background: var(--ink);
+  }
+  .btn-primary:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+  .btn-danger:hover {
+    border-color: var(--rust);
+    color: var(--rust);
+    background: rgba(192,84,42,0.06);
+  }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2.5rem 2.5rem 3rem;
+    align-items: start;
+  }
+
+  /* ── Editor side ── */
+  .editor-col {
+    padding-right: 2.5rem;
+    border-right: 1.5px solid var(--border);
+  }
+
+  .editor-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .editor-label-text {
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .editor-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  #textInput {
+    width: 100%;
+    min-height: 480px;
+    resize: vertical;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    background: var(--card);
+    color: var(--ink);
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    line-height: 1.8;
+    padding: 1.4rem 1.6rem;
+    outline: none;
+    transition: border-color 0.2s;
+    caret-color: var(--gold);
+  }
+  #textInput:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(200,168,75,0.12);
+  }
+  #textInput::placeholder {
+    color: #b5ae9e;
+    font-style: italic;
+    font-size: 1rem;
+  }
+
+  /* file drop zone overlay hint */
+  .drop-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  /* ── Stats sidebar ── */
+  .stats-col {
+    padding-left: 2.5rem;
+    position: sticky;
+    top: 88px;
+  }
+
+  .stats-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.4rem;
+  }
+
+  /* Big four stats */
+  .big-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    padding: 1.1rem 1rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .stat-card:hover {
+    border-color: var(--gold);
+    transform: translateY(-1px);
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent, var(--gold));
+  }
+
+  .stat-card[data-type="words"]   { --accent: #c8a84b; }
+  .stat-card[data-type="chars"]   { --accent: #5a8a6e; }
+  .stat-card[data-type="sentences"] { --accent: #6a7abf; }
+  .stat-card[data-type="paragraphs"] { --accent: #c0542a; }
+
+  .stat-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .stat-value {
+    font-family: 'Fraunces', serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    transition: color 0.3s;
+  }
+  .stat-value.updated {
+    color: var(--gold);
+  }
+
+  /* Divider */
+  .stats-divider {
+    border: none;
+    border-top: 1.5px solid var(--border);
+    margin: 1.2rem 0;
+  }
+
+  /* Secondary stats */
+  .secondary-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .sec-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+  }
+  .sec-stat-row .sec-label {
+    color: var(--muted);
+  }
+  .sec-stat-row .sec-val {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: var(--ink);
+    min-width: 4ch;
+    text-align: right;
+    transition: color 0.3s;
+  }
+
+  /* Reading time estimate */
+  .reading-time {
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    padding: 0.9rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.8rem;
+  }
+  .rt-icon {
+    font-size: 1.2rem;
+    opacity: 0.6;
+  }
+  .rt-text {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .rt-text strong {
+    color: var(--ink);
+    font-style: normal;
+  }
+
+  /* Char breakdown toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle-row input[type="checkbox"] {
+    accent-color: var(--gold);
+    width: 14px; height: 14px;
+    cursor: pointer;
+  }
+
+  /* ARIA live region */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+  }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1.5px solid var(--border);
+    padding: 1rem 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    background: var(--paper);
+  }
+  footer a { color: var(--muted); text-decoration: underline; }
+
+  /* ── Responsive ── */
+  @media (max-width: 800px) {
+    main {
+      grid-template-columns: 1fr;
+      padding: 1.5rem 1.2rem;
+    }
+    .editor-col {
+      padding-right: 0;
+      border-right: none;
+      border-bottom: 1.5px solid var(--border);
+      padding-bottom: 2rem;
+      margin-bottom: 2rem;
+    }
+    .stats-col {
+      padding-left: 0;
+      position: static;
+    }
+    header {
+      padding: 1rem 1.2rem;
+    }
+    .tagline { display: none; }
+  }
+
+  /* Flash animation on value update */
+  @keyframes flash {
+    0%   { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  .flash {
+    animation: flash 0.25s ease-out;
+  }
+</style>
+</head>
+<body>
+
+<!-- ARIA live region for screen readers -->
+<div class="sr-only" aria-live="polite" aria-atomic="true" id="liveAnnounce"></div>
+
+<header>
+  <div>
+    <div class="logo">Text<span>Lens</span></div>
+    <div class="tagline">Precision Text Analysis</div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-danger" onclick="clearText()" title="Clear all text (Ctrl+L)">✕ Clear</button>
+    <button class="btn btn-primary" onclick="copyStats()" title="Copy stats to clipboard">Copy Stats</button>
+  </div>
+</header>
+
+<main>
+  <!-- Left: Editor -->
+  <div class="editor-col">
+    <div class="editor-label">
+      <span class="editor-label-text">Your Text</span>
+      <div class="editor-actions">
+        <label class="btn" style="cursor:pointer;" title="Import a .txt file">
+          ↑ Import
+          <input type="file" accept=".txt" id="fileInput" style="display:none" onchange="importFile(event)">
+        </label>
+        <button class="btn" onclick="downloadText()" title="Download text as .txt">↓ Export</button>
+      </div>
+    </div>
+    <textarea
+      id="textInput"
+      placeholder="Start typing, paste text, or import a file…"
+      aria-label="Text input area for counting"
+      spellcheck="true"
+    ></textarea>
+    <p class="drop-hint">🔒 All processing is local — your text never leaves the browser</p>
+  </div>
+
+  <!-- Right: Stats -->
+  <div class="stats-col">
+    <div class="stats-title">Live Statistics</div>
+
+    <!-- Big 4 -->
+    <div class="big-stats">
+      <div class="stat-card" data-type="words">
+        <div class="stat-label">Words</div>
+        <div class="stat-value" id="wordCount">0</div>
+      </div>
+      <div class="stat-card" data-type="chars">
+        <div class="stat-label">Characters</div>
+        <div class="stat-value" id="charCount">0</div>
+      </div>
+      <div class="stat-card" data-type="sentences">
+        <div class="stat-label">Sentences</div>
+        <div class="stat-value" id="sentenceCount">0</div>
+      </div>
+      <div class="stat-card" data-type="paragraphs">
+        <div class="stat-label">Paragraphs</div>
+        <div class="stat-value" id="paragraphCount">0</div>
+      </div>
+    </div>
+
+    <!-- Reading time -->
+    <div class="reading-time">
+      <span class="rt-icon">⏱</span>
+      <div class="rt-text">
+        Reading time: <strong id="readingTime">0 sec</strong><br>
+        Speaking time: <strong id="speakingTime">0 sec</strong>
+      </div>
+    </div>
+
+    <hr class="stats-divider">
+
+    <!-- Secondary stats -->
+    <div class="secondary-stats">
+      <div class="sec-stat-row">
+        <span class="sec-label">Chars (with spaces)</span>
+        <span class="sec-val" id="charWithSpace">0</span>
+      </div>
+      <div class="sec-stat-row">
+        <span class="sec-label">Chars (no spaces)</span>
+        <span class="sec-val" id="charNoSpace">0</span>
+      </div>
+      <div class="sec-stat-row">
+        <span class="sec-label">Lines</span>
+        <span class="sec-val" id="lineCount">0</span>
+      </div>
+      <div class="sec-stat-row">
+        <span class="sec-label">Unique words</span>
+        <span class="sec-val" id="uniqueWords">0</span>
+      </div>
+      <div class="sec-stat-row">
+        <span class="sec-label">Avg word length</span>
+        <span class="sec-val" id="avgWordLen">—</span>
+      </div>
+      <div class="sec-stat-row">
+        <span class="sec-label">Avg sentence length</span>
+        <span class="sec-val" id="avgSentLen">—</span>
+      </div>
+    </div>
+
+    <hr class="stats-divider">
+
+    <!-- Options -->
+    <label class="toggle-row">
+      <input type="checkbox" id="excludeSpacesToggle" onchange="updateCounts()">
+      Show chars without spaces as main count
+    </label>
+
+  </div>
+</main>
+
+<footer>
+  <span>TextLens — all counting is done locally in your browser</span>
+  <span>Supports English & multilingual text · Emoji-aware</span>
+</footer>
+
+<script>
+  const textarea = document.getElementById('textInput');
+
+  // Debounce
+  let debounceTimer;
+  textarea.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(updateCounts, 120);
+  });
+
+  function updateCounts() {
+    const text = textarea.value;
+    const excludeSpaces = document.getElementById('excludeSpacesToggle').checked;
+
+    // --- Characters ---
+    // Use grapheme-aware counting via spread (handles most emoji)
+    const chars = countGraphemes(text);
+    const charsNoSpace = countGraphemes(text.replace(/\s/g, ''));
+
+    // --- Words ---
+    const wordList = getWords(text);
+    const wordCount = wordList.length;
+
+    // --- Sentences ---
+    const sentenceCount = countSentences(text);
+
+    // --- Paragraphs ---
+    const paragraphCount = countParagraphs(text);
+
+    // --- Lines ---
+    const lineCount = text === '' ? 0 : text.split('\n').length;
+
+    // --- Unique words ---
+    const uniqueWords = new Set(wordList.map(w => w.toLowerCase())).size;
+
+    // --- Avg word length ---
+    const avgWordLen = wordCount > 0
+      ? (wordList.reduce((s, w) => s + w.length, 0) / wordCount).toFixed(1)
+      : '—';
+
+    // --- Avg sentence length (words per sentence) ---
+    const avgSentLen = sentenceCount > 0
+      ? (wordCount / sentenceCount).toFixed(1)
+      : '—';
+
+    // --- Reading / speaking time ---
+    const readWPM = 238, speakWPM = 130;
+    const readSec = Math.round((wordCount / readWPM) * 60);
+    const speakSec = Math.round((wordCount / speakWPM) * 60);
+
+    // Update DOM
+    const mainChar = excludeSpaces ? charsNoSpace : chars;
+    animateValue('wordCount', wordCount);
+    animateValue('charCount', mainChar);
+    animateValue('sentenceCount', sentenceCount);
+    animateValue('paragraphCount', paragraphCount);
+
+    document.getElementById('charWithSpace').textContent = chars.toLocaleString();
+    document.getElementById('charNoSpace').textContent = charsNoSpace.toLocaleString();
+    document.getElementById('lineCount').textContent = lineCount.toLocaleString();
+    document.getElementById('uniqueWords').textContent = uniqueWords.toLocaleString();
+    document.getElementById('avgWordLen').textContent = avgWordLen;
+    document.getElementById('avgSentLen').textContent = avgSentLen + (avgSentLen !== '—' ? ' w' : '');
+
+    document.getElementById('readingTime').textContent = formatTime(readSec);
+    document.getElementById('speakingTime').textContent = formatTime(speakSec);
+
+    // ARIA live announce
+    document.getElementById('liveAnnounce').textContent =
+      `${wordCount} words, ${mainChar} characters, ${sentenceCount} sentences, ${paragraphCount} paragraphs`;
+  }
+
+  // ── Counting functions ─────────────────────────────
+
+  function countGraphemes(str) {
+    // Use Intl.Segmenter if available (modern browsers)
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      return [...seg.segment(str)].length;
+    }
+    // Fallback: spread operator handles most emoji
+    return [...str].length;
+  }
+
+  function getWords(text) {
+    if (!text.trim()) return [];
+    // Intl.Segmenter word segmentation
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      try {
+        const seg = new Intl.Segmenter(undefined, { granularity: 'word' });
+        return [...seg.segment(text)]
+          .filter(s => s.isWordLike)
+          .map(s => s.segment);
+      } catch(e) {}
+    }
+    // Fallback: regex — handles contractions & hyphenated words as single
+    return text.match(/[a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u30FF][\w'\-]*/gu) || [];
+  }
+
+  function countSentences(text) {
+    if (!text.trim()) return 0;
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      try {
+        const seg = new Intl.Segmenter(undefined, { granularity: 'sentence' });
+        const segs = [...seg.segment(text)].filter(s => s.segment.trim().length > 0);
+        return segs.length;
+      } catch(e) {}
+    }
+    // Fallback: split on sentence-ending punctuation
+    const matches = text.match(/[^.!?…]*[.!?…]+/g);
+    if (!matches) return text.trim() ? 1 : 0;
+    return matches.filter(m => m.trim().length > 0).length;
+  }
+
+  function countParagraphs(text) {
+    if (!text.trim()) return 0;
+    // Split on one or more blank lines
+    const paras = text.split(/\n\s*\n/);
+    return paras.filter(p => p.trim().length > 0).length;
+  }
+
+  // ── Utilities ─────────────────────────────────────
+
+  function formatTime(seconds) {
+    if (seconds === 0) return '0 sec';
+    if (seconds < 60) return seconds + ' sec';
+    const m = Math.floor(seconds / 60), s = seconds % 60;
+    return s > 0 ? `${m} min ${s} sec` : `${m} min`;
+  }
+
+  function animateValue(id, newVal) {
+    const el = document.getElementById(id);
+    const formatted = newVal.toLocaleString();
+    if (el.textContent !== formatted) {
+      el.textContent = formatted;
+      el.classList.remove('flash');
+      void el.offsetWidth; // reflow
+      el.classList.add('flash');
+    }
+  }
+
+  function clearText() {
+    textarea.value = '';
+    updateCounts();
+    textarea.focus();
+  }
+
+  function copyStats() {
+    const text = textarea.value;
+    const words  = getWords(text).length;
+    const chars  = countGraphemes(text);
+    const sents  = countSentences(text);
+    const paras  = countParagraphs(text);
+    const stats = `TextLens Statistics\nWords: ${words}\nCharacters: ${chars}\nSentences: ${sents}\nParagraphs: ${paras}`;
+    navigator.clipboard.writeText(stats).then(() => {
+      const btn = document.querySelector('.btn-primary');
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.textContent = orig, 1500);
+    });
+  }
+
+  function downloadText() {
+    const blob = new Blob([textarea.value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'textlens-export.txt';
+    a.click();
+  }
+
+  function importFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      textarea.value = e.target.result;
+      updateCounts();
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // reset so same file can be re-imported
+  }
+
+  // Keyboard shortcut: Ctrl+L to clear
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'l') { e.preventDefault(); clearText(); }
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); downloadText(); }
+  });
+
+  // Initial state
+  updateCounts();
+</script>
+</body>
+</html>
